@@ -1,0 +1,15 @@
+# Go
+/bin/
+/pkg/
+*.exe
+*.test
+*.out
+/vendor/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+.env
