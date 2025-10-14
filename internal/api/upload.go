@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/db"
+	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/queue"
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/storage"
 
 	"github.com/rs/zerolog/log"
@@ -14,6 +15,7 @@ import (
 type API struct {
 	DB      *db.DB
 	Storage storage.Storage
+	Queue   *queue.NatsClient
 }
 
 type uploadResponse struct {
@@ -69,6 +71,21 @@ func (a *API) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// not fatal: still return upload id
 		log.Error().Err(err).Msg("job insert failed")
+	}
+
+	// publish job message (non-blocking)
+	if a.Queue != nil {
+		jm := queue.JobMessage{
+			JobID:    jobID,
+			UploadID: uploadID,
+			Type:     "transcode",
+		}
+		// context.Background() used for quick publish; you can pass r.Context()
+		if err := a.Queue.PublishJob(r.Context(), "jobs", jm); err != nil {
+			log.Error().Err(err).Msg("failed to publish job to nats")
+		} else {
+			log.Info().Int64("job", jobID).Msg("published job to nats")
+		}
 	}
 
 	resp := uploadResponse{

@@ -13,7 +13,9 @@ import (
 
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/api"
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/db"
+	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/queue"
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/storage"
+	"github.com/nats-io/nats.go"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -42,9 +44,21 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to create storage base path")
 	}
 
+	//Initialize NATS client
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = nats.DefaultURL // "nats://127.0.0.1:4222"
+	}
+	nClient, err := queue.NewNatsClient(natsURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to connect nats")
+	}
+	defer nClient.Close()
+
 	apiSvc := &api.API{
 		DB:      database,
 		Storage: lf,
+		Queue:   nClient,
 	}
 
 	r := chi.NewRouter()
