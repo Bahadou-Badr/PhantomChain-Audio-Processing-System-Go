@@ -66,6 +66,8 @@ func main() {
 	r.Get("/ready", readyHandler)
 	r.Post("/upload", apiSvc.UploadHandler)
 
+	r.Get("/uploads/{id}/analysis", apiSvc.GetUploadAnalysisHandler) //expose analysis results
+
 	r.Route("/api", func(r chi.Router) {
 		apiSvc.RegisterJobRoutes(r)
 	})

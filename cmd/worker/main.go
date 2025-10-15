@@ -115,8 +115,28 @@ func handleJob(ctx context.Context, db *db.DB, jm queue.JobMessage) {
 	}
 	_ = db.UpdateJobStatus(ctx, jobID, "processing", 60, "transcode done")
 
-	// 3) Loudness analysis
+	// 1) LUFS (you may already compute it)
 	lufs, err := audio.Loudness(ctx, outputFull)
+	if err == nil {
+		_, _ = db.Pool.Exec(ctx, `UPDATE uploads SET integrated_lufs=$1 WHERE id=$2`, lufs, jm.UploadID)
+		_ = db.UpdateJobStatus(ctx, jm.JobID, "processing", 75, fmt.Sprintf("loudness=%.2f", lufs))
+	}
+
+	// 2) BPM + Key via python analyzer
+	// set python executable path and script path (config or env)
+	pythonExe := "python" // or full path like ".\\.venv\\Scripts\\python.exe"
+	scriptPath := "./tools/analyze.py"
+	analysisCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	res, err := audio.AnalyzeWithPython(analysisCtx, pythonExe, scriptPath, outputFull, 60*time.Second)
+	if err == nil && res != nil {
+		_, _ = db.Pool.Exec(ctx, `UPDATE uploads SET bpm=$1, musical_key=$2 WHERE id=$3`, res.BPM, res.Key, jm.UploadID)
+		_ = db.UpdateJobStatus(ctx, jm.JobID, "processing", 90, fmt.Sprintf("bpm=%.2f key=%s", res.BPM, res.Key))
+	} else {
+		_ = db.UpdateJobStatus(ctx, jm.JobID, "processing", 90, "analysis failed: "+err.Error())
+	}
+
+	// 3) Loudness analysis
 	if err == nil {
 		// save to uploads table
 		_, _ = db.Pool.Exec(ctx, `UPDATE uploads SET output_path=$1, integrated_lufs=$2 WHERE id=$3`, outputRel, lufs, uploadID)

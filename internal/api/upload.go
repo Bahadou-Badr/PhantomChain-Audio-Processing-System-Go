@@ -1,13 +1,17 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/db"
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/queue"
 	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/internal/storage"
+	"github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/pkg/utils"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/rs/zerolog/log"
 )
@@ -98,4 +102,32 @@ func (a *API) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// optional: log
 	log.Info().Str("path", dest).Int64("size", n).Msgf("uploaded file id=%d job=%d", uploadID, jobID)
+}
+
+func (a *API) GetUploadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	row := a.DB.Pool.QueryRow(ctx, `SELECT duration_seconds, integrated_lufs, bpm, musical_key, output_path FROM uploads WHERE id=$1`, id)
+	var dur sql.NullFloat64
+	var lufs sql.NullFloat64
+	var bpm sql.NullFloat64
+	var key sql.NullString
+	var out sql.NullString
+	if err := row.Scan(&dur, &lufs, &bpm, &key, &out); err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	resp := map[string]interface{}{
+		"duration_seconds": utils.NilIfNullFloat(dur),
+		"integrated_lufs":  utils.NilIfNullFloat(lufs),
+		"bpm":              utils.NilIfNullFloat(bpm),
+		"musical_key":      utils.NilIfNullString(key),
+		"output_path":      utils.NilIfNullString(out),
+	}
+	writeJSON(w, resp)
 }
