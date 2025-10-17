@@ -60,7 +60,6 @@ Designed for scalability, it follows a microservice-style architecture separatin
 - `test/integration/` — E2E tests (Testcontainers-based)
 - `testdata/` — Sample audio files Dockerfile
 - `deploy/` — Supporting Files
-Supporting File
 - `Dockerfile` — Dockerfile file example 
 - `docker-compose.yml` — Full example includes logging, metrics exposure, network setup, and service dependencies (PhantomChain: API + Worker + NATS + PostgreSQL + Prometheus)
 
