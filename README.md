@@ -196,4 +196,5 @@ This combination gives PhantomChain a **fault-tolerant and distributed processin
 | **MinIO Integration**               | Use **MinIO** as a high-performance, **S3-compatible object storage** for managing and storing processed audio files efficiently. |
 | **Grafana Dashboards**              | Implement **Grafana** to visualize metrics collected via Prometheus (e.g., job durations, worker throughput, error rates).        |
 | **Multi-Format Audio Transcoding**  | Extend FFmpeg worker logic to support multiple output formats (MP3, WAV, FLAC, AAC).                                              |
-
+|**Authentication & access control for API**| Secure endpoints and restrict access based on roles or API keys
+|Add `Configs/` folder | Centralize configuration for easier management and environment switching (for environment variables and other servers configuration)
