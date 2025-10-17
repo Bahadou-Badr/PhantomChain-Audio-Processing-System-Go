@@ -1,43 +1,102 @@
-version: "3.8"
+version: "3.9"
 
 services:
   postgres:
     image: postgres:15
+    container_name: phantomchain_postgres
+    restart: always
     environment:
-      POSTGRES_USER: audio
-      POSTGRES_PASSWORD: audio_pass
-      POSTGRES_DB: goaudio
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+      POSTGRES_USER: phantom
+      POSTGRES_PASSWORD: phantom123
+      POSTGRES_DB: phantomchain
     ports:
       - "5432:5432"
-
-  minio:
-    image: minio/minio:latest
-    # if the tag above errors, change to "latest"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
-      - miniodata:/data
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - phantomnet
+
+  nats:
+    image: nats:2.10
+    container_name: phantomchain_nats
+    restart: always
+    ports:
+      - "4222:4222"    # client connections
+      - "8222:8222"    # monitoring endpoint
+    networks:
+      - phantomnet
 
   api:
-    build: .
-    depends_on:
-      - postgres
-      - minio
+    build:
+      context: .
+      dockerfile: ./cmd/api/Dockerfile
+    container_name: phantomchain_api
+    restart: on-failure
+    environment:
+      APP_ENV: production
+      DATABASE_DSN: postgres://phantom:phantom123@postgres:5432/phantomchain?sslmode=disable
+      NATS_URL: nats://nats:4222
+      METRICS_PORT: ":2112"
+      SERVER_PORT: ":8080"
     ports:
       - "8080:8080"
+      - "2112:2112"
+    depends_on:
+      - postgres
+      - nats
+    networks:
+      - phantomnet
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./cmd/worker/Dockerfile
+    container_name: phantomchain_worker
+    restart: on-failure
     environment:
-      - DATABASE_URL=postgres://audio:audio_pass@postgres:5432/goaudio?sslmode=disable
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      APP_ENV: production
+      DATABASE_DSN: postgres://phantom:phantom123@postgres:5432/phantomchain?sslmode=disable
+      NATS_URL: nats://nats:4222
+      METRICS_PORT: ":2113"
+    ports:
+      - "2113:2113"
+    depends_on:
+      - postgres
+      - nats
+    networks:
+      - phantomnet
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: phantomchain_prometheus
+    restart: always
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - phantomnet
+    depends_on:
+      - api
+      - worker
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: phantomchain_grafana
+  #   restart: always
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - phantomnet
 
 volumes:
   pgdata:
-  miniodata:
+
+networks:
+  phantomnet:
+    driver: bridge

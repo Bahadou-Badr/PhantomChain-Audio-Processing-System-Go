@@ -1,8 +1,8 @@
 # Go
 /bin/
-/pkg/
+# /pkg/
 *.exe
-*.test
+# *.test
 *.out
 /vendor/
 

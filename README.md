@@ -1,75 +1,200 @@
-~/ PhantomChain-Audio-Processing-System-Go
+~/ PhantomChain-Audio-Processing-System-Go 🕷️
 
+# 🎧 PhantomChain — Distributed Audio Processing & Job Queue System (Go-based)
 
-## Architecture (Phase 1)
+**PhantomChain** is a modular backend system written in **Go**, designed for **asynchronous audio processing** with a **scalable worker pool**, **NATS-based queue**, **structured logging (zap)**, **Prometheus metrics**, and **end-to-end integration testing** powered by Testcontainers.
+
+Designed for scalability, it follows a microservice-style architecture separating the **API**, **Worker**, and **internal libraries** for clean maintainability.
+
+---
+
+## 🕸️ Architecture Overview
+
+```pgsql
+                      ┌───────────────────┐
+                      │     Client App    │
+                      │  (uploads audio)  │
+                      └────────┬──────────┘
+                               │ HTTP (JSON)
+                               ▼
+                ┌─────────────────────────────────┐
+                │           API Server            │
+                │─────────────────────────────────│
+                │ • Receives upload requests      │
+                │ • Stores job metadata (Postgres)│
+                │ • Publishes jobs to NATS        │
+                └────────────────┬────────────────┘
+                                 │
+                              Pub/Sub
+                                 │
+                                 ▼
+                ┌────────────────────────────────┐
+                │            Worker(s)           │
+                │────────────────────────────────│
+                │ • Subscribes to NATS jobs      │
+                │ • Runs FFmpeg for processing   │
+                │ • Reports job status updates   │
+                │ • Exposes Prometheus metrics   │
+                └────────────────┬───────────────┘
+                                 │
+                                 ▼
+                           ┌─────────────┐
+                           │ PostgreSQL  │
+                           └─────────────┘
 ```
-[Client] <-- HTTP --> [API service (:8080)]
-                                |
-                        ---------------
-                        |             |
-                    [Postgres]      [NATS]
-```
 
--------------------------
--------------------------
-#  Job queue
-We went with NATS beacause is Minimal / cloud-native, Scalable and Designed for high performance and low latencyand , with features like server-side filtering
 
-# Observability, metrics & tests
+**Modules:**
+- `cmd/api/` — API server entrypoint  
+- `cmd/worker/` — Worker service entrypoint  
+- `internal/api/` — HTTP handlers, routing, middleware  
+- `internal/server/` — Helper to launch API in tests  
+- `internal/worker/` — Worker pool, job handling (pool, runner)  
+- `internal/db/` — Database connection, queries, migrations  
+- `internal/queue/` — NATS client & JobMessage definitions 
+- `internal/storage/` — Local file storage logic 
+- `internal/logging/` — Zap logger initialization
+- `internal/metrics/` — Prometheus metric definitions  
+- `internal/audio/` — FFmpeg & analysis helpers (Probe, Transcode, Loudness, etc.)  
+- `tools/analyze.py` — Python script to compute BPM / key using librosa  
+- `test/integration/` — E2E tests (Testcontainers-based)
+- `testdata/` — Sample audio files Dockerfile
+- `deploy/` — Supporting Files
+Supporting File
+- `Dockerfile` — Dockerfile file example 
+- `docker-compose.yml` — Full example includes logging, metrics exposure, network setup, and service dependencies (PhantomChain: API + Worker + NATS + PostgreSQL + Prometheus)
 
-### Observability
-Add structured logging (zap) and metrics (Prometheus client) :
-- ```internal/logging/logger.go``` (zap init)
-- ```internal/metrics/metrics.go``` (Prometheus metrics)
-- ```internal/server/server.go``` to init logging, register metrics and expose /metrics
-- ```internal/worker/runner.go``` (init logging + register metrics if desired)
+---
 
-Instrumentation snippets to add to ```internal/worker/pool.go``` so the pool updates metrics and logs (full file patch shown)
+## ⚙️ Setup Instructions
 
-### Tests End2End (testcontainers)
-**Testcontainers orchestrates containers programmatically** :
-- testcontainers spins Postgres & NATS. The test waits for them to be ready.
-- We use api.RunAPIServer to start the API in-process on 127.0.0.1:8085.
-- We start an in-process worker via worker.RunWorker, passing a simHandler closure that performs a trivial "processing" (writes a .processed file and updates DB/job status). This avoids needing FFmpeg inside CI.
-- We upload a sample file via HTTP POST /upload and poll the DB until the job becomes done.
-- The test asserts uploads.output_path is set and the output file exists in the temp storage folder.
+### 1. Prerequisites
+- Go 1.23+
+- Docker  
+- FFmpeg installed locally  
+- Python + librosa (for BPM/key analysis, optional) 
 
------
------
-# my notes
-## Test upload
+### 2. Clone the repository
 ```bash
-curl -v -F "file=@C:\Users\bdr\Documents\Workspace\Test\SZN SAMPLE11.mp3" http://localhost:8080
-/upload
+git clone https://github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go.git
+cd PhantomChain-Audio-Processing-System-Go
 ```
 
-## job Simulate
-- Simulate progress:
+Set environment variables (example):
 ```bash
-curl -X PATCH http://localhost:8080/api/jobs/1 -H "Content-Type: application/json" -d "{\"status\":\"processing\",\"progress\":20,\"log\":\"started transcode\"}"
+export DATABASE_URL="postgres://postgres:postgres@localhost:5432/phantom?sslmode=disable"
+export NATS_URL="nats://localhost:4222"
+export STORAGE_PATH="./data"
 ```
 
-- Set done:
+### 3. Start dependencies
+Start:
+- PostgreSQL (port 5432)
+- NATS Server (port 4222)
+- Optional Grafana + Prometheus stack (if configured)
+
+### 4. Run the API server
 ```bash
-curl -X PATCH http://localhost:8080/api/jobs/1 -H "Content-Type: application/json" -d "{\"status\":\"done\",\"progress\":100,\"log\":\"finished transcode\"}"
+go run ./cmd/api
 ```
-## Analysis features (LUFS, BPM, key)
-### Summary
- - Add DB columns ```bpm```, ```musical_key``` , (and ```integrated_lufs``` if not present).
- - Add ```tools/analyze.py``` and test it manually.
- - Add ```internal/audio/analyze.go``` wrapper to call Python.
- - Update worker ```handleJob``` to call ```audio.Loudness``` and ```audio.AnalyzeWithPython``` .
- Update API to expose ```/uploads/{id}/analysis``` .
+### 5. Run the Worker service
+```bash
+go run ./cmd/worker
+```
 
-## Tests & manual run (short) 
 
-- Start API & worker & NATS.
-- Upload a short MP3.
-- Worker transcodes, saves output, runs ffmpeg loudnorm (LUFS), then runs python tools/analyze.py for BPM/key.
-- Check DB and ```GET /uploads/{id}/analysis``` for results.
+## 🔍 Observability
 
-## End2end tests using (Testcontainers)
-- Run _**Docker Desktop**_ ; testcontainers requires Docker to be available locally or in CI runner
-Run ```go test ./...``` to build everything. Unit tests will run.
-- Run integration tests (Testcontainers) with Docker available: ```go test ./test/integration -v``` (remove ```t.Skip```). 
-- The test will start Postgres + NATS containers and start API & worker in-process; metrics endpoint will be mounted on the API server, and the worker will update metrics via the package-level counters.
+### **Logging (Zap)**
+
+Structured JSON logs for API & Worker.  
+Log levels: `INFO`, `ERROR`, `DEBUG`.
+
+**Example:**
+```json
+{"level":"info","msg":"Job processed","job_id":42,"duration":"3.1s"}
+```
+
+### **Metrics (Prometheus)**
+
+Metrics are exposed at `/metrics` on both API & Worker.
+You can scrape them via *Prometheus* or view through *Grafana*.
+
+#### Key Metrics :
+| Metric                 | Type      | Description                       |
+| ---------------------- | --------- | --------------------------------- |
+| `jobs_processed_total` | Counter   | Total jobs successfully processed |
+| `jobs_failed_total`    | Counter   | Failed job count                  |
+| `job_duration_seconds` | Histogram | Job processing durations          |
+| `worker_active_gauge`  | Gauge     | Current active workers            |
+------
+
+## 🧪 Testing
+Integration and E2E tests use Testcontainers-Go to run isolated NATS and PostgreSQL containers automatically.
+
+### Run all tests
+```bash
+go test ./test/integration -v
+```
+### Example test flow
+1. Start PostgreSQL and NATS containers.
+
+2. Start API and Worker inside the test environment.
+
+3. Upload sample audio file via HTTP API.
+
+4. Wait for worker to process the job and update DB status.
+
+5. Assert successful job completion and processed output.
+--------
+
+## 🧩 Technology Stack
+| Layer | Technology | Advantages |
+|-------|-------------|-------------|
+| **Language** | Go (Golang) | Fast compilation, concurrency via goroutines, excellent tooling, strong standard library. |
+| **Queue** | NATS | Lightweight, distributed, high-performance messaging system, perfect for job dispatch. |
+| **Database** | PostgreSQL | Reliable ACID transactions, JSONB support for flexibility, rich ecosystem of tools. |
+| **Processing** | FFmpeg | Proven, robust multimedia engine capable of transcoding, extracting, and analyzing audio. |
+| **Observability** | Zap + Prometheus | Structured JSON logs and runtime metrics for visibility and performance tracking. |
+| **Testing** | Testcontainers-Go | Real integration tests using real PostgreSQL and NATS containers. |
+| **Routing** | Chi | Minimal, idiomatic HTTP router for Go — fast and composable. |
+| **Configuration** | Environment Variables | Simple, flexible, and consistent across environments. |
+| **Containerization** | Docker Compose | One-command environment orchestration for local dev and testing. |
+
+## Why NATS for Job Queueing
+
+NATS was chosen as the message broker because of its **simplicity, speed, and horizontal scalability**.  
+It’s lightweight, extremely fast, and easy to integrate into Go projects without complex setup like Kafka or RabbitMQ.  
+
+### Key Reasons:
+- **Low latency & high throughput:** Ideal for real-time audio processing pipelines.  
+-  **Go-native client:** Seamless integration with idiomatic Go patterns (channels, goroutines).  
+-  **Automatic message persistence (JetStream):** Supports durable streams, replay, and acknowledgment.  
+- **Scalable topology:** Multiple workers can process jobs concurrently across nodes.  
+- **Pub/Sub + QueueGroup hybrid:** Simple fan-out or load-balancing via subject subscriptions.  
+
+This combination gives PhantomChain a **fault-tolerant and distributed processing system** without introducing unnecessary complexity.
+
+---
+
+## ⚡ Design Notes
+- Modular internal/ packages isolate logic for maintainability.
+
+- Each service (API, Worker) runs independently — horizontally scalable.
+
+- Worker pool uses goroutine-safe queue management and context cancellation for graceful shutdowns.
+
+- Observability stack supports metrics-driven debugging.
+
+- Integration tests simulate real-life workflows (upload → queue → process → store).
+
+
+
+## 👾 Future Enhancements
+
+| Enhancement                         | Description                                                                                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **MinIO Integration**               | Use **MinIO** as a high-performance, **S3-compatible object storage** for managing and storing processed audio files efficiently. |
+| **Grafana Dashboards**              | Implement **Grafana** to visualize metrics collected via Prometheus (e.g., job durations, worker throughput, error rates).        |
+| **Multi-Format Audio Transcoding**  | Extend FFmpeg worker logic to support multiple output formats (MP3, WAV, FLAC, AAC).                                              |
+
