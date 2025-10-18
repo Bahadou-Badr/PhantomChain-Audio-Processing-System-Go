@@ -102,6 +102,16 @@ go run ./cmd/api
 go run ./cmd/worker
 ```
 
+```bash
+curl -v -F "file=@C:\Users\dev\path\Test\SHORTSAMPLE1.mp3" http://localhost:8080/upload
+```
+`GET /uploads/{id}` to inspect uploads
+
+Check ```/jobs/{id}``` via API should move from queued → running → processing → done, with logs
+
+List jobs `curl http://localhost:8080/jobs`
+
+Check DB and `GET /uploads/{id}/analysis` for results.
 
 ## 🔍 Observability
 
