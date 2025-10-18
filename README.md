@@ -156,6 +156,65 @@ go test ./test/integration -v
 4. Wait for worker to process the job and update DB status.
 
 5. Assert successful job completion and processed output.
+
+```bash
+$ go test ./test/integration -v
+=== RUN   TestE2E_UploadAndProcess_WithTestcontainers
+2025/10/18 23:17:31 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 28.5.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7802 MB
+  Labels:
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+  Testcontainers for Go Version: v0.39.0
+  Resolved Docker Host: npipe:////./pipe/docker_engine
+  Resolved Docker Socket Path: //var/run/docker.sock
+  Test SessionID: 448dbea7e23cce9d441ed41e7d198edbc5d81a29cbc802f7973b975fb0108c26
+  Test ProcessID: 03574ec7-9c40-4257-a72d-178d7b53c8fa
+2025/10/18 23:17:31 No image auth found for https://index.docker.io/v1/. Setting empty credentials for the image: postgres:15. This is expected for public images. Details: credentials not found in native keychain
+2025/10/18 23:19:10 🐳 Creating container for image postgres:15
+2025/10/18 23:19:11 No image auth found for https://index.docker.io/v1/. Setting empty credentials for the image: testcontainers/ryuk:0.13.0. This is expected for public images. Details: credentials not found in native keychain
+2025/10/18 23:19:18 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2025/10/18 23:19:18 ✅ Container created: d6b0bf90f6f8
+2025/10/18 23:19:18 🐳 Starting container: d6b0bf90f6f8
+2025/10/18 23:19:19 ✅ Container started: d6b0bf90f6f8
+2025/10/18 23:19:19 ⏳ Waiting for container id d6b0bf90f6f8 image: testcontainers/ryuk:0.13.0. Waiting for: &{Port:8080/tcp timeout:<nil> PollInterval:100ms skipInternalCheck:false skipExternalCheck:false}
+2025/10/18 23:19:19 Shell not found in container
+2025/10/18 23:19:19 🔔 Container is ready: d6b0bf90f6f8
+2025/10/18 23:19:19 ✅ Container created: f90134fabe84
+2025/10/18 23:19:19 🐳 Starting container: f90134fabe84
+2025/10/18 23:19:19 ✅ Container started: f90134fabe84
+2025/10/18 23:19:19 ⏳ Waiting for container id f90134fabe84 image: postgres:15. Waiting for: &{timeout:0xc000384150 URL:0x12c8120 Driver:postgres Port:5432/tcp startupTimeout:60000000000 PollInterval:100ms query:SELECT 1}
+2025/10/18 23:19:22 🔔 Container is ready: f90134fabe84
+2025/10/18 23:19:22 No image auth found for https://index.docker.io/v1/. Setting empty credentials for the image: nats:latest. This is expected for public images. Details: credentials not found in native keychain
+2025/10/18 23:19:27 🐳 Creating container for image nats:latest
+2025/10/18 23:19:27 ✅ Container created: eb9a541463f2
+2025/10/18 23:19:27 🐳 Starting container: eb9a541463f2
+2025/10/18 23:19:28 ✅ Container started: eb9a541463f2
+2025/10/18 23:19:28 ⏳ Waiting for container id eb9a541463f2 image: nats:latest. Waiting for: &{Port:4222/tcp timeout:0xc0003bcaa0 PollInterval:100ms skipInternalCheck:false skipExternalCheck:false}
+2025/10/18 23:19:28 Shell not found in container
+2025/10/18 23:19:28 🔔 Container is ready: eb9a541463f2
+2025-10-18T23:19:28.706+0100    INFO    server/server.go:46     server.RunAPIServer starting    {"addr": "127.0.0.1:8085"}
+2025-10-18T23:19:29.236+0100    INFO    worker/pool.go:44       starting worker pool    {"concurrency": 2}
+{"level":"info","job":1,"time":"2025-10-18T23:19:29+01:00","message":"published job to nats"}
+{"level":"info","path":"20251018\\20251018-221929-short.mp3","size":4,"time":"2025-10-18T23:19:29+01:00","message":"uploaded file id=1 job=1"}
+2025-10-18T23:19:29.570+0100    INFO    worker/pool.go:86       processing job  {"job": 1, "worker": 0}
+2025-10-18T23:19:29.620+0100    INFO    worker/pool.go:134      job completed   {"job": 1, "duration_s": 0.0433098}
+2025-10-18T23:19:29.870+0100    INFO    worker/pool.go:53       stopping worker pool
+2025/10/18 23:19:30 🐳 Stopping container: eb9a541463f2
+2025-10-18T23:19:30.070+0100    INFO    server/server.go:110    server.RunAPIServer shutdown requested
+2025/10/18 23:19:30 ✅ Container stopped: eb9a541463f2
+2025/10/18 23:19:30 🐳 Terminating container: eb9a541463f2
+2025/10/18 23:19:30 🚫 Container terminated: eb9a541463f2
+2025/10/18 23:19:30 🐳 Stopping container: f90134fabe84
+2025/10/18 23:19:31 ✅ Container stopped: f90134fabe84
+2025/10/18 23:19:31 🐳 Terminating container: f90134fabe84
+2025/10/18 23:19:31 🚫 Container terminated: f90134fabe84
+--- PASS: TestE2E_UploadAndProcess_WithTestcontainers (120.32s)
+PASS
+ok      github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go/test/integration        (120.32s)
+```
 --------
 
 ## 🧩 Technology Stack
