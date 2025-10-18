@@ -58,7 +58,7 @@ Designed for scalability, it follows a microservice-style architecture separatin
 - `internal/audio/` — FFmpeg & analysis helpers (Probe, Transcode, Loudness, etc.)  
 - `tools/analyze.py` — Python script to compute BPM / key using librosa  
 - `test/integration/` — E2E tests (Testcontainers-based)
-- `testdata/` — Sample audio files Dockerfile
+- `testdata/` — Sample audio files
 - `deploy/` — Supporting Files
 - `Dockerfile` — Dockerfile file example 
 - `docker-compose.yml` — Full example includes logging, metrics exposure, network setup, and service dependencies (PhantomChain: API + Worker + NATS + PostgreSQL + Prometheus)
@@ -77,6 +77,7 @@ Designed for scalability, it follows a microservice-style architecture separatin
 ```bash
 git clone https://github.com/Bahadou-Badr/PhantomChain-Audio-Processing-System-Go.git
 cd PhantomChain-Audio-Processing-System-Go
+go mod download
 ```
 
 Set environment variables (example):
